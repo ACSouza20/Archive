@@ -1,3 +1,5 @@
+MPI > https://orcaforum.kofo.mpg.de/viewtopic.php?f=9&t=9696
+##########################################################
 sudo nano /etc/gdm3/custom.conf
 sudo systemctl restart gdm3
 ##########################################################
@@ -44,5 +46,70 @@ nohup molpro -n $2 -I /media/quitrem/nvme1/scratch/ -W /media/quitrem/nvme1/scra
 echo "tail -f -n 775 ${1%.*}.out"
 
 ##########################################################
+
+#!/bin/bash
+x=1
+free  > ram.dat
+while [ $x -le 86400 ]
+do
+  free  | grep "Mem" >> ram.dat
+  x=$(( $x + 1 ))
+  sleep 10s
+done
+##########################################################
+set term postscript color enhanced "Helvetica" 20
+
+brick="#ca0000"
+myblue="#5176ff"
+
+set pointsize 1.4 
+set key Left reverse
+
+set xtics nomirror
+set ytics nomirror
+set mxtics 2
+set mytics 1
+
+set ylabel "{/Helvetica-Bold=24 USED RAM/bytes}"
+set zlabel "{/Helvetica-Bold=24 O/ang}"
+set format x "%.1s*10^{%T}"
+set format y "%.0s*10^{%T}"
+
+set xrange[*:*]
+set yrange[*:*]
+
+set output "ram.ps"
+set key at graph 0.95, graph 0.35 vertical maxrows 7
+set xlabel "time/10s"
+set label 1  "" at graph 0.56, graph 0.25
+
+
+plot   "ram.dat" index 0 u ($0):3 w l lw 2 lc rgb "black" ti ""
+##########################################################
+
+#!/bin/bash
+
+    echo "temperature in celsius degree with the follow date and hour of the record:" > temp.dat
+
+while :
+do
+    sensors | grep "Tdie:  " | awk -F '[+]' '{print $2}' | awk -F '[.]' '{print $1}' >> temp.dat
+    date >> temp.dat
+	sleep 10
+    a=`wc -l temp.dat | awk -F '[ ]' '{print $1}'`
+    if [ $a -gt 17280 ]
+    then
+        echo "In the last 24h the maximum temperature was:" >> temp.dat
+        sort -n temp.dat | tail -n 1 >> temp.dat
+        tail -n 26 temp.dat > temp.dat.tmp
+        rm temp.dat
+        cat temp.dat.tmp > temp.dat
+        rm temp.dat.tmp
+    fi    
+done
+
+##########################################################
+
+
 
 
