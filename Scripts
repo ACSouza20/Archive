@@ -1,8 +1,9 @@
-MPI > https://orcaforum.kofo.mpg.de/viewtopic.php?f=9&t=9696
-##########################################################
+########################################################## Explicação sobre MPI
+MPI > https://orcaforum.kofo.mpg.de/viewtopic.php?f=9&t=9696 
+########################################################## Restart video linux
 sudo nano /etc/gdm3/custom.conf
 sudo systemctl restart gdm3
-##########################################################
+########################################################## Rodar orca
 #!/bin/bash
 
 if [ $# = 0 ]
@@ -21,7 +22,7 @@ export PATH="/usr/local/bin/:$PATH"
 /usr/local/orca/orca $1 > $OUT &
 echo "tail -f -n 1000 ${1%.*}.out"
 
-##########################################################
+########################################################## Rodar molpro
 
 #!/bin/bash
 if [ $# = 0 ]
@@ -45,7 +46,7 @@ nohup molpro -n $2 -I /media/quitrem/nvme1/scratch/ -W /media/quitrem/nvme1/scra
 
 echo "tail -f -n 775 ${1%.*}.out"
 
-##########################################################
+########################################################## Consumo memória
 
 #!/bin/bash
 x=1
@@ -56,7 +57,7 @@ do
   x=$(( $x + 1 ))
   sleep 10s
 done
-##########################################################
+########################################################## Gráfico da memória ram
 set term postscript color enhanced "Helvetica" 20
 
 brick="#ca0000"
@@ -85,7 +86,7 @@ set label 1  "" at graph 0.56, graph 0.25
 
 
 plot   "ram.dat" index 0 u ($0):3 w l lw 2 lc rgb "black" ti ""
-##########################################################
+########################################################## Monitorar temperatura
 
 #!/bin/bash
 
@@ -108,8 +109,283 @@ do
     fi    
 done
 
-##########################################################
+########################################################## Gerador do script do orca - cluster china
+#!/bin/bash
+processo=$1
+arquivo=$2
+nucleo=$3
+
+cat << EOF > orca503.pbs
+#PBS -N $processo
+#PBS -l nodes=1:ppn=$nucleo
+#PBS -q cu
+#PBS -j oe
+
+jobname="$arquivo.inp"
+outname="$arquivo.out"
+
+# openmpi
+export PATH=/public/software/ORCA/openmpi-411/bin:\$PATH
+export LD_LIBRARY_PATH=/public/software/ORCA/openmpi-411/lib:\$LD_LIBRARY_PATH
+
+# orca
+export PATH=/public/software/ORCA/5.0.3:\$PATH
+export LD_LIBRARY_PATH=/public/software/ORCA/5.0.3:\$LD_LIBRARY_PATH
+
+cd \${PBS_O_WORKDIR}
+cat \$PBS_NODEFILE > hosts
+# scratch
+JOB_ID=\$(date +%s%N | md5sum | head -c 10)
+tdir=/tmp/GAU.\$USER.\$JOB_ID
+mkdir -p \$tdir
+cp \${PBS_O_WORKDIR}/* \$tdir
+cd \$tdir
+
+# run
+/public/software/ORCA/5.0.3/orca \$jobname "-hostfile hosts" > \${PBS_O_WORKDIR}/\$outname &
+
+# copy xyz
+pid=\$!
+while ps -p \$pid &>/dev/null; do
+    cp \$tdir/*.xyz \${PBS_O_WORKDIR}
+    sleep 300 
+done
+
+# sync and clean
+mv \$tdir/* \${PBS_O_WORKDIR}
+rm -rf \$tdir
+EOF
+
+########################################################## Gerador do script do orca PARA NEB - cluster china
+#!/bin/bash
+processo=$1
+arquivo=$2
+nucleo=$3
+
+cat << EOF > orca503.pbs
+#PBS -N $processo
+#PBS -l nodes=1:ppn=$nucleo
+#PBS -q cu
+#PBS -j oe
+
+jobname="$arquivo.inp"
+outname="$arquivo.out"
+
+# openmpi
+export PATH=/public/software/ORCA/openmpi-411/bin:\$PATH
+export LD_LIBRARY_PATH=/public/software/ORCA/openmpi-411/lib:\$LD_LIBRARY_PATH
+
+# orca
+export PATH=/public/software/ORCA/5.0.3:\$PATH
+export LD_LIBRARY_PATH=/public/software/ORCA/5.0.3:\$LD_LIBRARY_PATH
+
+cd \${PBS_O_WORKDIR}
+cat \$PBS_NODEFILE > hosts
+# scratch
+JOB_ID=\$(date +%s%N | md5sum | head -c 10)
+tdir=/tmp/GAU.\$USER.\$JOB_ID
+mkdir -p \$tdir
+cp \${PBS_O_WORKDIR}/* \$tdir
+cd \$tdir
+
+# run
+/public/software/ORCA/5.0.3/orca \$jobname "-hostfile hosts" > \${PBS_O_WORKDIR}/\$outname &
+
+# copy xyz
+pid=\$!
+while ps -p \$pid &>/dev/null; do
+    cp \$tdir/*.xyz \${PBS_O_WORKDIR}
+    cp \$tdir/*.intep \${PBS_O_WORKDIR}
+    cp \$tdir/*.interp \${PBS_O_WORKDIR}
+    sleep 300 
+done
+
+# sync and clean
+mv \$tdir/* \${PBS_O_WORKDIR}
+rm -rf \$tdir
+EOF
+
+########################################################## Script do orca ORIGINAL - cluster china
+#PBS -N ORCA503
+#PBS -l nodes=1:ppn=52
+#PBS -l walltime=8888:00:00
+#PBS -q cu
+#PBS -j oe
+
+jobname="UIV+9H2O-D3-NEVPT2.inp"
+
+# openmpi
+export PATH=/public/software/ORCA/openmpi-411/bin:$PATH
+export LD_LIBRARY_PATH=/public/software/ORCA/openmpi-411/lib:$LD_LIBRARY_PATH
+
+# orca
+export PATH=/public/software/ORCA/5.0.3:$PATH
+export LD_LIBRARY_PATH=/public/software/ORCA/5.0.3:$LD_LIBRARY_PATH
+
+cd ${PBS_O_WORKDIR}
+cat $PBS_NODEFILE > hosts
+# scratch
+JOB_ID=`date +%s%N | md5sum | head -c 10`
+tdir=/tmp/GAU.$USER.$JOB_ID
+mkdir -p $tdir
+cp ${PBS_O_WORKDIR}/* $tdir
+cd $tdir
+
+# run
+/public/software/ORCA/5.0.3/orca $jobname "-hostfile hosts" > ${PBS_O_WORKDIR}/out.log
+
+# sync and clean
+mv ${tdir}/* ${PBS_O_WORKDIR}
+rm -rf ${tdir}
+
+########################################################## Extrai e plota ponto de NEB sem interp
+#!/bin/bash
+
+# Definir o caminho do arquivo .out
+arquivo=$1
+name_noextension=$(echo ${arquivo} | cut -d '.' -f 1)
+
+grep "E -" "$name_noextension"_MEP_ALL_trj.xyz | awk '{print $NF}' | awk 'BEGIN {count=0; interaction=0} {
+  if (count == 14) {
+    print "";  # Linha em branco
+    print "";  # Linha em branco
+
+    count = 0;  # Reseta o contador de energias
+    interaction++;  # Incrementa o número da interação
+  }
+  print count " " $0;  # Imprime o contador e o valor da energia
+  count++;  # Incrementa o contador
+}' > "$name_noextension"_GERADO.interp
+
+#criação do arquivo do gráfico
+echo "set term postscript color enhanced 'Verdana' 20
+
+## set term postscript fontfile 'hvrb10ex.pfa'  color enhanced 'Verdana' 20
+#use: '{/Verdana=18 ^2{/HVTextEx-Bold \315}_g}'
+# 'hvrm10ex.pfa' roman; 'hvrb10ex.pfa' bold
+
+set pointsize 1.4 
+set key Left reverse
+
+set xlabel '{/Verdana=24 R/Angstrom}'
+set ylabel '{/Verdana=24 energy/kJ mol^{-1}}'
+
+set xtics nomirror
+set ytics nomirror
+set mxtics 2
+set mytics 2
+set format x '%.1f'
+#set format y '%.2f'
+# set format y '10^{%T}'  #for 10^    or '%11.4e'
+
+set xrange[*:*]
+set yrange[*:*]
+
+set output 'gNEB.ps'
+Eh2kcmol =  627.509438586222
+Eh2kjmol =  2625.49961747733
+
+ref=$(awk 'NR==1 {print $2}' "$name_noextension"_GERADO.interp | awk '{$1=$1};1')
+do for [a=-1:300:9]{
+plot for [idx=a+1:a+9] '"$name_noextension"_GERADO.interp' index idx u 1:(\$2-ref)*Eh2kjmol w lp pt 7 lw 2 ti sprintf('%.0f',idx)
+} " > NEB.gpl
+
+gnuplot NEB.gpl
+
+# Pergunta sobre a criação ou não do arquivo gnuplot
+echo "Você quer que seja criado o arquivo de NEB.gpl?"
+read -p "Digite 'sim' para manter o arquivo, ou qualquer outra coisa para excluí-lo: " resposta
+resposta_minuscula=$(echo "$resposta" | tr '[:upper:]' '[:lower:]')
 
 
+if [ "$resposta_minuscula" == "sim" ] || [ "$resposta_minuscula" == "s" ] || [ "$resposta_minuscula" == "si" ]; then
+    echo "Arquivo NEB.gpl mantido."
+else
+    echo "Arquivo NEB.gpl excluído."
+    rm "NEB.gpl"
+fi
+
+########################################################## Plota ponto do NEB vindo do interp
+#!/bin/bash
+
+# Definir o caminho do arquivo .out
+arquivo=$1
+name_noextension=$(echo ${arquivo} | cut -d '.' -f 1)
+
+
+#criação do arquivo do gráfico
+echo "set term postscript color enhanced 'Verdana' 20
+
+## set term postscript fontfile 'hvrb10ex.pfa'  color enhanced 'Verdana' 20
+#use: '{/Verdana=18 ^2{/HVTextEx-Bold \315}_g}'
+# 'hvrm10ex.pfa' roman; 'hvrb10ex.pfa' bold
+
+set pointsize 1.4 
+set key Left reverse
+
+set xlabel '{/Verdana=24 R/Angstrom}'
+set ylabel '{/Verdana=24 energy/kJ mol^{-1}}'
+
+set xtics nomirror
+set ytics nomirror
+set mxtics 2
+set mytics 2
+set format x '%.1f'
+#set format y '%.2f'
+# set format y '10^{%T}'  #for 10^    or '%11.4e'
+
+set xrange[*:*]
+set yrange[*:*]
+
+set output 'gNEB.ps'
+Eh2kcmol =  627.509438586222
+Eh2kjmol =  2625.49961747733
+
+z=-728.08054305
+do for [a=-1:300:9]{
+plot for [idx=a+1:a+9] '$name_noextension.interp' index idx u 2:(\$3)*Eh2kjmol w lp pt 7 lw 2 ti sprintf('%.0f',idx)
+} " > NEB.gpl
+
+gnuplot NEB.gpl
+
+# Pergunta sobre a criação ou não do arquivo gnuplot
+echo "Você quer que seja criado o arquivo de NEB.gpl?"
+read -p "Digite 'sim' para manter o arquivo, ou qualquer outra coisa para excluí-lo: " resposta
+resposta_minuscula=$(echo "$resposta" | tr '[:upper:]' '[:lower:]')
+
+
+if [ "$resposta_minuscula" == "sim" ] || [ "$resposta_minuscula" == "s" ] || [ "$resposta_minuscula" == "si" ]; then
+    echo "Arquivo NEB.gpl mantido."
+else
+    echo "Arquivo NEB.gpl excluído."
+    rm "NEB.gpl"
+fi
+
+########################################################## Plota IRC
+
+set term postscript color enhanced "Verdana" 20
+
+set xtics nomirror
+set ytics nomirror
+set mxtics
+set mytics
+
+set xlabel "{Steps}"
+set ylabel "{eV}"
+set format x "%.0f"
+set format y "%.2f"
+set xrange[40:0]
+set yrange[*:*]
+
+set label 1  "wB97X IN *CO + *H -> *CHO" at graph 0.10, graph 1.025
+set arrow 1 from 2.15,-600 to 2.15,-599.93 nohead lt 0 lw 5
+
+#Energia da estrutura CO do IRC
+a=-90717.351312360421
+b=27.21
+
+set output "graph-IRC-wB97X-IN-CO+H-TS.ps"
+plot	"graph-IRC.dat" index 0 u 1:($2-a)*b w lp lc rgb "black" notitle,\
+	"graph-IRC.dat" index 1 u 1:($2-a)*b w points pointtype 5 lc rgb "red" title "TS",\
 
 
